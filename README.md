@@ -35,17 +35,17 @@ Run `jevex --stats` to compare cached input and latency for same-model turns and
 
 | Command | Result |
 | --- | --- |
-| `jevex` | Open the full-screen TUI. Write a task, press **Ctrl+Enter** or **Send**. |
+| `jevex` | Open the TUI. Write a task, press **Enter** or **Send**. |
 | `jevex "fix the typo in README"` | Run one turn and print the Codex session ID. |
 | `jevex --session <id> "now test it"` | Resume that exact conversation, with a new route. |
 | `jevex --dry-run "review this migration"` | Show the selected model without starting a Codex turn. |
 | `jevex --model gpt-6.1-sol "review this migration"` | Bypass Jev for one turn; the model must appear in Codex's visible catalog. |
 
-The TUI shows the active route, command activity, and formatted Codex responses. **Ctrl+M** reopens the model picker; **Ctrl+K** changes the Jev key; **Ctrl+L** clears only the visible transcript; **Ctrl+Q** quits. The composer accepts multiple lines.
+The TUI shows the active route, command activity, formatted Codex responses, and each turn's measured cache reuse and change from the previous turn. **Ctrl+M** reopens the model picker; **Ctrl+K** changes the Jev key; **Ctrl+L** clears only the visible transcript; **Ctrl+Q** quits. The input scrolls horizontally for long prompts.
 
 ## What Jevex actually routes
 
-Jevex records each turn's model, previous model, route source, elapsed time, exit code, and Codex-reported token usage in `~/.local/state/jevex/usage.jsonl` (or `$XDG_STATE_HOME/jevex/usage.jsonl`). The file has mode `0600` and contains no prompts, replies, or API keys. `jevex --stats` shows the cached share of input tokens and average latency. It is a diagnostic, not a cost or causal comparison: prompt size, task complexity, and model prices also affect the result. A turn with no usage event has no cache rate.
+Jevex records each turn's model, previous model, route source, elapsed time, exit code, and Codex-reported token usage in `~/.local/state/jevex/usage.jsonl` (or `$XDG_STATE_HOME/jevex/usage.jsonl`). The file has mode `0600` and contains no prompts, replies, or API keys. Codex reports cumulative session usage in some versions; Jevex subtracts the prior total to show each turn's measured input and cache reuse. `jevex --stats` shows the cached share of input tokens and average latency. It is a diagnostic, not a billed cost or a causal comparison: prompt size, task complexity, and model prices also affect the result. A turn with no usage event has no cache rate.
 
 Jevex asks Jev one typed `choice` question per **user turn**. The choices and their descriptions come from Codex app-server's [`model/list`](https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md), so there is no pinned list of model IDs. On first launch, Jevex saves your exclusions and the model IDs you reviewed. When Codex adds a model, the picker appears once again before automatic routing continues. The catalog is a picker list, **not proof of account entitlement**; a successful Codex turn is the actual check.
 

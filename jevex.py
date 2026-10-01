@@ -30,7 +30,16 @@ def usage_records():
     if not path.exists():
         return []
     with path.open() as file:
-        return [json.loads(line) for line in file if line.strip()]
+        records = [json.loads(line) for line in file if line.strip()]
+    totals = {}
+    for record in records:
+        session, reported = record.get("session"), record["usage"]
+        previous = totals.get(session, {}) if session else {}
+        record["usage"] = {key: value - previous.get(key, 0) if value >= previous.get(key, 0) else value
+                           for key, value in reported.items()}
+        if session and reported:
+            totals[session] = reported
+    return records
 
 
 def save_usage(record):
@@ -43,7 +52,7 @@ def save_usage(record):
 
 
 def print_stats():
-    records = usage_records()
+    records = [r for r in usage_records() if r["usage"].get("input_tokens")]
     if not records:
         print("No Codex turns recorded yet.")
         return
@@ -194,7 +203,8 @@ def codex_command(prompt, model, session=None):
 def run_codex(prompt, model, session=None, on_event=None, source="manual"):
     """Stream Codex JSON events and return its session ID and exit code."""
     command = codex_command(prompt, model, session)
-    previous_model = next((r["model"] for r in reversed(usage_records()) if r["session"] == session), None) if session else None
+    previous_turn = next((r for r in reversed(usage_records()) if r["session"] == session and r["usage"]), None) if session else None
+    previous_model = previous_turn["model"] if previous_turn else None
     started = time.monotonic()
     usage = {}
     with subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1) as process:
@@ -216,6 +226,9 @@ def run_codex(prompt, model, session=None, on_event=None, source="manual"):
     save_usage({"session": thread_id, "model": model, "previous_model": previous_model,
                 "source": source, "usage": usage, "seconds": round(time.monotonic() - started, 2),
                 "exit_code": code})
+    if on_event:
+        on_event({"type": "jevex.usage", "record": usage_records()[-1],
+                  "previous_cached": previous_turn["usage"].get("cached_input_tokens", 0) if previous_turn else None})
     return thread_id, code
 
 

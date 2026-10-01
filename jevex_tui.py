@@ -10,7 +10,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.screen import ModalScreen
-from textual.widgets import Button, Footer, Input, RichLog, SelectionList, Static, TextArea
+from textual.widgets import Button, Footer, Input, RichLog, SelectionList, Static
 
 from jevex import available_models, load_key, load_settings, route, run_codex, save_key, save_settings
 
@@ -84,34 +84,34 @@ class KeyPicker(ModalScreen[str | None]):
 
 
 class JevexApp(App):
+    TITLE = "Jevex"
     CSS = """
 Screen { background: #10111a; color: #e6e7ef; }
 #main { height: 1fr; }
-#top { height: 3; padding: 0 2; background: #191a29; border-bottom: solid #393950; align-vertical: middle; }
+#top { height: 3; padding: 0 2; background: #191a29; align-vertical: middle; }
 #brand { width: 1fr; color: #c9b5ff; text-style: bold; }
 #route { width: auto; color: #80e5d4; text-style: bold; }
 #transcript { height: 1fr; padding: 1 3; background: #10111a; scrollbar-color: #55506f; }
 #status { height: 2; padding: 0 2; background: #191a29; color: #98a0bb; content-align-vertical: middle; }
-#composer { height: 7; padding: 1 2; background: #191a29; border-top: solid #393950; }
-#prompt { width: 1fr; height: 5; background: #222336; border: round #555270; color: #f3f2fa; }
-#prompt:focus { border: round #ad91f2; }
-#send { width: 10; height: 5; margin-left: 1; background: #7658b8; color: #ffffff; border: none; text-style: bold; }
+#composer { height: 5; padding: 1 2; background: #191a29; }
+#prompt { width: 1fr; height: 3; background: #222336; border: none; color: #f3f2fa; padding: 0 1; }
+#prompt:focus { background: #2c2d48; }
+#send { width: 10; height: 3; margin-left: 1; background: #7658b8; color: #ffffff; border: none; text-style: bold; }
 #send:hover { background: #9370d3; }
 Footer { background: #191a29; color: #98a0bb; }
 ModelPicker, KeyPicker { align: center middle; background: #080910 80%; }
-#dialog, #key-dialog { width: 76; padding: 1 2; background: #1c1d2d; border: round #9b82d3; }
+#dialog, #key-dialog { width: 76; padding: 1 2; background: #1c1d2d; }
 #dialog { height: 80%; max-height: 27; }
 #key-dialog { height: 16; }
 .dialog-title { height: 2; color: #d3c2ff; text-style: bold; }
 .dialog-note { height: 2; color: #aeb3c7; }
-#choices { height: 1fr; background: #25263a; border: solid #45445d; }
+#choices { height: 1fr; background: #25263a; }
 #dialog-hint, #key-hint { height: 2; color: #80e5d4; }
-#key-input { height: 3; background: #25263a; border: round #555270; }
+#key-input { height: 3; background: #25263a; border: none; }
 .dialog-actions { height: 3; align-horizontal: right; }
 .dialog-actions Button { width: 13; margin-left: 1; }
     """
     BINDINGS = [
-        Binding("ctrl+enter", "send", "Send", priority=True),
         Binding("ctrl+m", "models", "Models", priority=True),
         Binding("ctrl+k", "key", "API key", priority=True),
         Binding("ctrl+l", "clear_log", "Clear view", priority=True),
@@ -128,17 +128,17 @@ ModelPicker, KeyPicker { align: center middle; background: #080910 80%; }
     def compose(self) -> ComposeResult:
         with Vertical(id="main"):
             with Horizontal(id="top"):
-                yield Static("◈  JEVEX", id="brand")
+                yield Static("JEVEX", id="brand")
                 yield Static("AUTO", id="route")
             yield RichLog(id="transcript", wrap=True, markup=False, auto_scroll=True)
             yield Static("Loading Codex models…", id="status")
             with Horizontal(id="composer"):
-                yield TextArea(id="prompt", soft_wrap=True, placeholder="Ask Codex…  Ctrl+Enter to send")
+                yield Input(id="prompt", placeholder="Ask Codex…  Enter to send")
                 yield Button("SEND", id="send", variant="primary", disabled=True)
         yield Footer()
 
     def on_mount(self) -> None:
-        self.query_one("#prompt", TextArea).focus()
+        self.query_one("#prompt", Input).focus()
         self.query_one("#transcript", RichLog).write(Text("  Ready when you are.", style="#9299b1"))
         Thread(target=self.load_catalog, daemon=True).start()
 
@@ -178,7 +178,7 @@ ModelPicker, KeyPicker { align: center middle; background: #080910 80%; }
         if not load_key():
             self.push_screen(KeyPicker(), self.key_saved)
         else:
-            self.query_one("#prompt", TextArea).focus()
+            self.query_one("#prompt", Input).focus()
 
     def key_saved(self, key: str | None) -> None:
         if key:
@@ -188,7 +188,7 @@ ModelPicker, KeyPicker { align: center middle; background: #080910 80%; }
                 self.query_one("#status", Static).update(f"Could not save API key: {exc}")
                 return
             self.query_one("#status", Static).update("Jev key saved  ·  ready")
-        self.query_one("#prompt", TextArea).focus()
+        self.query_one("#prompt", Input).focus()
 
     def action_models(self) -> None:
         if self.models and not self.busy:
@@ -206,11 +206,15 @@ ModelPicker, KeyPicker { align: center middle; background: #080910 80%; }
         if event.button.id == "send":
             self.action_send()
 
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id == "prompt":
+            self.action_send()
+
     def action_send(self) -> None:
         if self.busy or self.query_one("#send", Button).disabled:
             return
-        box = self.query_one("#prompt", TextArea)
-        prompt = box.text.strip()
+        box = self.query_one("#prompt", Input)
+        prompt = box.value.strip()
         if not prompt:
             return
         box.clear()
@@ -253,6 +257,14 @@ ModelPicker, KeyPicker { align: center middle; background: #080910 80%; }
                 log.write(Markdown(item["text"]))
         elif kind == "jevex.stderr":
             self.query_one("#transcript", RichLog).write(Text(event["message"], style="#e5a0a9"))
+        elif kind == "jevex.usage":
+            usage = event["record"]["usage"]
+            total, cached = usage.get("input_tokens", 0), usage.get("cached_input_tokens", 0)
+            if total:
+                line = f"  CACHE  {cached:,} / {total:,} input tokens reused ({cached / total:.0%})"
+                if event["previous_cached"] is not None:
+                    line += f"  ·  {cached - event['previous_cached']:+,} vs previous turn"
+                self.query_one("#transcript", RichLog).write(Text(line, style="#80e5d4"))
         elif kind == "turn.failed":
             self.query_one("#transcript", RichLog).write(Text(str(event.get("error", "Turn failed")), style="#e5a0a9"))
 
@@ -265,4 +277,4 @@ ModelPicker, KeyPicker { align: center middle; background: #080910 80%; }
         self.busy = False
         self.query_one("#send", Button).disabled = False
         self.query_one("#status", Static).update(f"{'Ready' if code == 0 else f'Codex exited {code}'}  ·  session {session or 'new'}")
-        self.query_one("#prompt", TextArea).focus()
+        self.query_one("#prompt", Input).focus()

@@ -48,10 +48,10 @@ class JevexTests(unittest.TestCase):
 
     def test_usage_log_tracks_model_switch_without_storing_prompt(self):
         class Process:
-            def __init__(self):
+            def __init__(self, turn):
                 self.stdout = iter([
                     json.dumps({"type": "thread.started", "thread_id": "session-123"}),
-                    json.dumps({"type": "turn.completed", "usage": {"input_tokens": 100, "cached_input_tokens": 40}}),
+                    json.dumps({"type": "turn.completed", "usage": {"input_tokens": 100 * turn, "cached_input_tokens": 40 * turn}}),
                 ])
 
             def __enter__(self):
@@ -63,25 +63,33 @@ class JevexTests(unittest.TestCase):
             def wait(self):
                 return 0
 
-        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"XDG_STATE_HOME": directory}), patch("jevex.subprocess.Popen", side_effect=lambda *args, **kwargs: Process()):
+        turns = iter((1, 2))
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"XDG_STATE_HOME": directory}), patch("jevex.subprocess.Popen", side_effect=lambda *args, **kwargs: Process(next(turns))):
             jevex.run_codex("secret prompt", "fast-v2")
             jevex.run_codex("secret prompt", "strong-v3", "session-123", source="jev")
             records = jevex.usage_records()
             self.assertEqual([r["previous_model"] for r in records], [None, "fast-v2"])
             self.assertEqual(records[-1]["usage"]["cached_input_tokens"], 40)
+            self.assertEqual(records[-1]["usage"]["input_tokens"], 100)
             self.assertNotIn("secret prompt", jevex.usage_path().read_text())
             self.assertEqual(jevex.usage_path().stat().st_mode & 0o777, 0o600)
 
     def test_tui_mounts(self):
         from jevex_tui import JevexApp
+        from textual.widgets import Input
 
         async def check():
             settings = {"excluded_models": set(), "known_models": set(MODELS)}
-            with patch("jevex_tui.available_models", return_value=MODELS), patch("jevex_tui.load_settings", return_value=settings):
+            sent = []
+            with patch("jevex_tui.available_models", return_value=MODELS), patch("jevex_tui.load_settings", return_value=settings), patch.object(JevexApp, "action_send", lambda app: sent.append(app.query_one("#prompt", Input).value)):
                 async with JevexApp().run_test() as pilot:
                     await pilot.pause()
-                    self.assertIsNotNone(pilot.app.query_one("#prompt"))
+                    box = pilot.app.query_one("#prompt", Input)
                     self.assertIsNotNone(pilot.app.query_one("#transcript"))
+                    box.value = "long prompt " * 30
+                    await pilot.press("enter")
+                    await pilot.pause()
+                    self.assertEqual(sent, ["long prompt " * 30])
 
         asyncio.run(check())
 

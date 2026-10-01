@@ -6,7 +6,7 @@ Jevex selects a Codex model once per user turn with Jev and resumes the same Cod
 
 ## Files
 
-- `jevex.py`: Codex model discovery via app-server `model/list`, Jev typed choice, Codex `exec`/`exec resume`, one-shot CLI.
+- `jevex.py`: Codex model discovery via app-server `model/list`, Jev typed choice, Codex `exec`/`exec resume`, local usage log, one-shot CLI.
 - `jevex_tui.py`: Textual interface and event rendering. CSS is inline so the single-module wheel includes it.
 - `test_jevex.py`: Small offline contract checks.
 - `README.md`: User-facing contract and limitations.
@@ -19,7 +19,8 @@ Jevex selects a Codex model once per user turn with Jev and resumes the same Cod
 4. Preserve the Codex session ID across user turns. Do not copy or rebuild its transcript in Jevex.
 5. Load API keys from `JEV_API_KEY` or the mode-`0600` local key file. Never put real keys or user prompt bodies in logs, screenshots, tests, or commits.
 6. Do not claim per-internal-call routing, account entitlement, quality gains, or quota savings without direct evidence.
-7. Run `python3 -m unittest -v` after code changes. For catalog changes, also inspect a live `model/list` result with the installed CLI. For TUI changes, run the headless mount test and inspect a screenshot.
+7. Codex may report cumulative session usage. Subtract the previous session total before presenting per-turn cache numbers. A model switch and a cache change can correlate without proving causation or billed savings.
+8. Run `python3 -m unittest -v` after code changes. For catalog changes, also inspect a live `model/list` result with the installed CLI. For TUI changes, run the headless mount test and inspect a screenshot.
 
 ## Boundaries
 
