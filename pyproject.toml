@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jevex-cli"
+version = "0.1.0"
+description = "A small Jev model router for Codex"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["textual>=6,<8"]
+
+[project.scripts]
+jevex = "jevex:main"
+
+[tool.setuptools]
+py-modules = ["jevex", "jevex_tui"]
