@@ -53,6 +53,8 @@ Jevex asks Jev one typed `choice` question per **user turn**. The choices and th
 
 If Jev is unavailable, Jevex visibly uses Codex's default model when it is eligible, or the first eligible model. If Codex cannot list models, Jevex stops with an error. An explicit `--model` skips Jev and the exclusions, but still checks the catalog. Jevex never silently substitutes an unknown model returned by Jev.
 
+On resume, Jevex checks that Codex reports the requested session ID. If Codex starts a different session, Jevex stops rather than silently losing the conversation. Codex may also print a rollout persistence warning while a turn succeeds; Jevex shows that diagnostic. Check whether the session can be resumed before assuming its history was saved in full.
+
 The choice applies to the whole Codex turn, including its tool continuations. Jevex does **not** reroute each internal model call. Switching models between turns may reduce prompt-cache reuse, but Codex resumes the same conversation and manages compaction. The TUI uses noninteractive `codex exec`, so Codex actions that require an interactive approval may stop rather than opening an approval dialog. There is no measured quality or quota-saving claim here; compare routes on your own tasks before trusting automatic selection.
 
 ## Test

@@ -217,7 +217,11 @@ def run_codex(prompt, model, session=None, on_event=None, source="manual"):
                     on_event({"type": "jevex.stderr", "message": line.strip()})
                 continue
             if event.get("type") == "thread.started":
-                thread_id = event.get("thread_id", thread_id)
+                started_id = event.get("thread_id", thread_id)
+                if session and started_id != session:
+                    process.terminate()
+                    raise RuntimeError(f"Codex resumed a different session ({started_id}); original session {session} was not resumed")
+                thread_id = started_id
             if event.get("type") == "turn.completed":
                 usage = event.get("usage", {})
             if on_event:

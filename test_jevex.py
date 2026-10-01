@@ -4,7 +4,7 @@ import json
 import os
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import jevex
 
@@ -77,6 +77,16 @@ class JevexTests(unittest.TestCase):
             self.assertEqual(records[-1]["usage"]["input_tokens"], 100)
             self.assertNotIn("secret prompt", jevex.usage_path().read_text())
             self.assertEqual(jevex.usage_path().stat().st_mode & 0o777, 0o600)
+
+    def test_resume_rejects_a_different_thread_id(self):
+        process = MagicMock()
+        process.stdout = iter([json.dumps({"type": "thread.started", "thread_id": "different-session"})])
+        process.__enter__.return_value = process
+        with patch("jevex.subprocess.Popen", return_value=process), patch("jevex.usage_records", return_value=[]), patch("jevex.save_usage") as save:
+            with self.assertRaisesRegex(RuntimeError, "different session"):
+                jevex.run_codex("keep context", "fast-v2", "original-session")
+        process.terminate.assert_called_once()
+        save.assert_not_called()
 
     def test_tui_mounts(self):
         from jevex_tui import JevexApp
