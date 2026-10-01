@@ -27,6 +27,8 @@ jevex
 
 The first launch lists all models currently visible to Codex. Keep the ones Jev may choose, then paste your key into the masked prompt. Jevex stores the key at `~/.config/jevex/key` with mode `0600`. Alternatively, set `JEV_API_KEY` in your environment. Run `jevex` from the repository you want Codex to work in; it inherits the current directory and Codex's existing configuration and authentication. If your shell cannot find `jevex`, run `uv tool update-shell` and open a new terminal.
 
+Jevex also runs from directories without Git. It passes Codex's `--skip-git-repo-check` flag for fresh and resumed turns; Codex's normal sandbox and approval settings still apply.
+
 To develop from a checkout instead: `uv tool install .` from the project directory. To update an installed checkout after editing it, run `uv tool install --reinstall .`.
 
 ## Use

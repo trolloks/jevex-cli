@@ -42,8 +42,12 @@ class JevexTests(unittest.TestCase):
 
     def test_resume_passes_same_session_with_new_model(self):
         self.assertEqual(
+            jevex.codex_command("First task", "fast-v2"),
+            ["codex", "exec", "--json", "--skip-git-repo-check", "--model", "fast-v2", "First task"],
+        )
+        self.assertEqual(
             jevex.codex_command("Next task", "fast-v2", "session-123"),
-            ["codex", "exec", "resume", "--json", "--model", "fast-v2", "session-123", "Next task"],
+            ["codex", "exec", "resume", "--json", "--skip-git-repo-check", "--model", "fast-v2", "session-123", "Next task"],
         )
 
     def test_usage_log_tracks_model_switch_without_storing_prompt(self):

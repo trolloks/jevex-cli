@@ -193,7 +193,7 @@ def codex_command(prompt, model, session=None):
     command = ["codex", "exec"]
     if session:
         command += ["resume"]
-    command += ["--json", "--model", model]
+    command += ["--json", "--skip-git-repo-check", "--model", model]
     if session:
         command += [session]
     command += [prompt]

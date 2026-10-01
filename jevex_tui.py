@@ -94,7 +94,7 @@ Screen { background: #10111a; color: #e6e7ef; }
 #transcript { height: 1fr; padding: 1 3; background: #10111a; scrollbar-color: #55506f; }
 #status { height: 2; padding: 0 2; background: #191a29; color: #98a0bb; content-align-vertical: middle; }
 #composer { height: 5; padding: 1 2; background: #191a29; }
-#prompt { width: 1fr; height: 3; background: #222336; border: none; color: #f3f2fa; padding: 0 1; }
+#prompt { width: 1fr; height: 3; background: #222336; border: none; color: #f3f2fa; padding: 1 1; }
 #prompt:focus { background: #2c2d48; }
 #send { width: 10; height: 3; margin-left: 1; background: #7658b8; color: #ffffff; border: none; text-style: bold; }
 #send:hover { background: #9370d3; }
@@ -107,7 +107,7 @@ ModelPicker, KeyPicker { align: center middle; background: #080910 80%; }
 .dialog-note { height: 2; color: #aeb3c7; }
 #choices { height: 1fr; background: #25263a; }
 #dialog-hint, #key-hint { height: 2; color: #80e5d4; }
-#key-input { height: 3; background: #25263a; border: none; }
+#key-input { height: 3; background: #25263a; border: none; padding: 1 1; }
 .dialog-actions { height: 3; align-horizontal: right; }
 .dialog-actions Button { width: 13; margin-left: 1; }
     """
