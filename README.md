@@ -59,7 +59,7 @@ The choice applies to the whole Codex turn, including its tool continuations. Je
 
 ## Routing benchmark
 
-[Read the interactive report](benchmarks/report.html) and [raw measurements](benchmarks/results.json). Four coding prompts ran in each of two Codex sessions: Jevex selected Luna three times, then switched to Sol; the comparison stayed on Sol. Both passed 24/24 executable checks. Estimated API cost was $0.0758 with Jevex versus $0.0808 fixed Sol, a 6% difference in this single run. The switched turn was costlier for Jevex and had less cached input. The report separates those measurements from the possible causes and limits of this small pilot.
+[Read the interactive report](benchmarks/report.html) and [raw measurements](benchmarks/results.json). Four coding prompts ran in each of two Codex sessions: Jevex selected Luna three times, then switched to Sol; the comparison stayed on Sol. Both passed 24/24 executable checks. Estimated API cost was $0.0758 with Jevex versus $0.0808 fixed Sol, a 6% difference in this single run. The switched turn consumed 92% of the earlier savings. Only about 2,642 additional Sol cache misses would erase the remaining advantage. A hypothetical fixed comparison with 90% cache reuse costs $0.0456, making the recorded routed run 66% more expensive. The report includes cache sensitivity controls, input/output cost decomposition, and cache-write scenarios. This pilot does not establish viability.
 
 To repeat the benchmark, run `python3 benchmarks/benchmark.py` with Codex signed in and a Jev key configured. It starts eight real Codex turns and spends tokens. The dollar figures apply public API rates to Codex-reported usage; they are not ChatGPT billing data.
 

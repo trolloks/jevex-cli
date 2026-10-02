@@ -1,9 +1,24 @@
 import unittest
+import json
+from pathlib import Path
 
 from benchmark import TASKS, delta, estimated_cost, grade
+from report import cache_analysis, scenario_cost
 
 
 class BenchmarkTests(unittest.TestCase):
+    def test_cache_cost_and_break_even(self):
+        rates = {"input": 2, "cached": .1, "write": 2.5, "output": 10}
+        turn = {"usage": {"input_tokens": 10_000, "output_tokens": 0}, "router_cost_usd": 0}
+        self.assertAlmostEqual(scenario_cost(turn, rates, 1), .001)
+        self.assertAlmostEqual(scenario_cost(turn, rates, 0), .02)
+        self.assertAlmostEqual(scenario_cost(turn, rates, 0, 1), .025)
+        data = json.loads((Path(__file__).parent / "results.json").read_text())
+        analysis = cache_analysis(data)
+        self.assertAlmostEqual(sum(value for _, value in analysis["breakdown"]), analysis["last_excess"])
+        self.assertAlmostEqual(analysis["prefix_cost"] + scenario_cost(analysis["routed"], analysis["rates"], analysis["cache_share"]), analysis["routed_cost"])
+        self.assertAlmostEqual(analysis["prefix_cost"] + scenario_cost(analysis["routed"], analysis["rates"], analysis["break_even_share"]), analysis["fixed_cost"])
+
     def test_grader_and_cumulative_usage(self):
         examples = [
             "def slugify(text):\n return '-'.join(''.join(c.lower() if c.isalnum() else ' ' for c in text).split())",
