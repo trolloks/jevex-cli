@@ -17,9 +17,11 @@ MODELS = {
 
 class JevexTests(unittest.TestCase):
     def test_jev_choice_uses_live_model_ids(self):
-        reply = {"answers": {"tier": {"type": "choice", "choice": "fast-v2"}}}
+        reply = {"answers": {"tier": {"type": "choice", "choice": "fast-v2"}}, "usage": {"input_tokens": 42}}
+        usage = {}
         with patch("jevex.urlopen", return_value=io.BytesIO(json.dumps(reply).encode())) as request:
-            self.assertEqual(jevex.choose_model("Fix a typo", "secret", MODELS), "fast-v2")
+            self.assertEqual(jevex.choose_model("Fix a typo", "secret", MODELS, on_usage=usage.update), "fast-v2")
+        self.assertEqual(usage, {"input_tokens": 42})
         body = json.loads(request.call_args.args[0].data)
         self.assertEqual(set(body["questions"]["tier"]["criteria"]), set(MODELS))
         self.assertEqual(body["state"], "Fix a typo")

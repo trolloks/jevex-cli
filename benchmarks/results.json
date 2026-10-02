@@ -1,0 +1,232 @@
+{
+  "created_utc": "2026-10-02T07:01:51.036484+00:00",
+  "codex_version": "codex-cli 0.160.0",
+  "catalog_seconds": 1.18,
+  "baseline": "gpt-6.1-sol",
+  "eligible_models": [
+    "gpt-6-luna",
+    "gpt-6-sol",
+    "gpt-6.1-sol"
+  ],
+  "pricing": {
+    "gpt-6-luna": {
+      "input": 0.1,
+      "cached": 0.01,
+      "write": 0.125,
+      "output": 0.5
+    },
+    "gpt-6-sol": {
+      "input": 2.0,
+      "cached": 0.2,
+      "write": 2.5,
+      "output": 10.0
+    },
+    "gpt-6.1-sol": {
+      "input": 2.0,
+      "cached": 0.1,
+      "write": 2.5,
+      "output": 10.0
+    }
+  },
+  "jev_input_rate": 0.042,
+  "strategies": [
+    {
+      "name": "Jevex",
+      "turns": [
+        {
+          "task": "slug",
+          "model": "gpt-6-luna",
+          "seconds": 10.25,
+          "usage": {
+            "input_tokens": 21089,
+            "cached_input_tokens": 7936,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 36,
+            "reasoning_output_tokens": 0
+          },
+          "passed": 4,
+          "checks": 4,
+          "issue": "",
+          "cost_usd": 0.00141266,
+          "tool_calls": 0,
+          "codex_warnings": 0,
+          "source": "jev",
+          "router_seconds": 0.52,
+          "router_usage": {
+            "input_tokens": 491,
+            "output_tokens": 58
+          },
+          "router_cost_usd": 2.0622e-05
+        },
+        {
+          "task": "csv",
+          "model": "gpt-6-luna",
+          "seconds": 16.27,
+          "usage": {
+            "input_tokens": 29064,
+            "cached_input_tokens": 20224,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 324,
+            "reasoning_output_tokens": 152
+          },
+          "passed": 5,
+          "checks": 5,
+          "issue": "",
+          "cost_usd": 0.00124824,
+          "tool_calls": 0,
+          "codex_warnings": 0,
+          "source": "jev",
+          "router_seconds": 0.45,
+          "router_usage": {
+            "input_tokens": 517,
+            "output_tokens": 58
+          },
+          "router_cost_usd": 2.1714000000000003e-05
+        },
+        {
+          "task": "dag",
+          "model": "gpt-6-luna",
+          "seconds": 16.62,
+          "usage": {
+            "input_tokens": 30736,
+            "cached_input_tokens": 28416,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 301,
+            "reasoning_output_tokens": 84
+          },
+          "passed": 5,
+          "checks": 5,
+          "issue": "",
+          "cost_usd": 0.0006666600000000001,
+          "tool_calls": 0,
+          "codex_warnings": 0,
+          "source": "jev",
+          "router_seconds": 0.46,
+          "router_usage": {
+            "input_tokens": 506,
+            "output_tokens": 58
+          },
+          "router_cost_usd": 2.1252000000000003e-05
+        },
+        {
+          "task": "expr",
+          "model": "gpt-6.1-sol",
+          "seconds": 73.59,
+          "usage": {
+            "input_tokens": 37212,
+            "cached_input_tokens": 7168,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 1154,
+            "reasoning_output_tokens": 671
+          },
+          "passed": 10,
+          "checks": 10,
+          "issue": "",
+          "cost_usd": 0.0723448,
+          "tool_calls": 0,
+          "codex_warnings": 0,
+          "source": "jev",
+          "router_seconds": 0.53,
+          "router_usage": {
+            "input_tokens": 512,
+            "output_tokens": 59
+          },
+          "router_cost_usd": 2.1504000000000003e-05
+        }
+      ]
+    },
+    {
+      "name": "Fixed Sol",
+      "turns": [
+        {
+          "task": "slug",
+          "model": "gpt-6.1-sol",
+          "seconds": 22.52,
+          "usage": {
+            "input_tokens": 22907,
+            "cached_input_tokens": 0,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 143,
+            "reasoning_output_tokens": 84
+          },
+          "passed": 4,
+          "checks": 4,
+          "issue": "",
+          "cost_usd": 0.047244,
+          "tool_calls": 0,
+          "codex_warnings": 0,
+          "source": "fixed",
+          "router_seconds": 0,
+          "router_usage": {},
+          "router_cost_usd": 0.0
+        },
+        {
+          "task": "csv",
+          "model": "gpt-6.1-sol",
+          "seconds": 30.52,
+          "usage": {
+            "input_tokens": 24503,
+            "cached_input_tokens": 22784,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 329,
+            "reasoning_output_tokens": 145
+          },
+          "passed": 5,
+          "checks": 5,
+          "issue": "",
+          "cost_usd": 0.0090064,
+          "tool_calls": 0,
+          "codex_warnings": 0,
+          "source": "fixed",
+          "router_seconds": 0,
+          "router_usage": {},
+          "router_cost_usd": 0.0
+        },
+        {
+          "task": "dag",
+          "model": "gpt-6.1-sol",
+          "seconds": 32.55,
+          "usage": {
+            "input_tokens": 26180,
+            "cached_input_tokens": 24320,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 340,
+            "reasoning_output_tokens": 185
+          },
+          "passed": 5,
+          "checks": 5,
+          "issue": "",
+          "cost_usd": 0.009552,
+          "tool_calls": 0,
+          "codex_warnings": 0,
+          "source": "fixed",
+          "router_seconds": 0,
+          "router_usage": {},
+          "router_cost_usd": 0.0
+        },
+        {
+          "task": "expr",
+          "model": "gpt-6.1-sol",
+          "seconds": 49.41,
+          "usage": {
+            "input_tokens": 28192,
+            "cached_input_tokens": 25984,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 796,
+            "reasoning_output_tokens": 301
+          },
+          "passed": 10,
+          "checks": 10,
+          "issue": "",
+          "cost_usd": 0.014974399999999999,
+          "tool_calls": 0,
+          "codex_warnings": 0,
+          "source": "fixed",
+          "router_seconds": 0,
+          "router_usage": {},
+          "router_cost_usd": 0.0
+        }
+      ]
+    }
+  ]
+}

@@ -160,7 +160,7 @@ def available_models():
     return models
 
 
-def choose_model(prompt, key, models, url=JEV_URL):
+def choose_model(prompt, key, models, url=JEV_URL, on_usage=None):
     """Ask Jev one typed question. Unexpected replies are errors, not routes."""
     if not key:
         raise ValueError("Set JEV_API_KEY or use --model.")
@@ -182,7 +182,10 @@ def choose_model(prompt, key, models, url=JEV_URL):
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
     )
     with urlopen(request, timeout=15) as response:
-        answer = json.load(response)["answers"]["tier"]
+        result = json.load(response)
+    if on_usage:
+        on_usage(result.get("usage", {}))
+    answer = result["answers"]["tier"]
     model = answer["choice"]
     if answer.get("type") != "choice" or model not in models:
         raise ValueError("Jev returned an invalid model choice")
@@ -236,7 +239,7 @@ def run_codex(prompt, model, session=None, on_event=None, source="manual"):
     return thread_id, code
 
 
-def route(prompt, forced=None, models=None):
+def route(prompt, forced=None, models=None, on_usage=None):
     models = models or available_models()
     if forced:
         if forced not in models:
@@ -251,7 +254,7 @@ def route(prompt, forced=None, models=None):
     if not eligible:
         raise ValueError("Every available model is excluded; press Ctrl+M in jevex to change this")
     try:
-        return choose_model(prompt, load_key(), eligible), "jev", models
+        return choose_model(prompt, load_key(), eligible, on_usage=on_usage), "jev", models
     except Exception as exc:
         fallback = next((model for model, item in eligible.items() if item.get("isDefault")), next(iter(eligible)))
         return fallback, f"Fallback · Jev unavailable: {exc}", models

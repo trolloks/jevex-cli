@@ -57,6 +57,12 @@ On resume, Jevex checks that Codex reports the requested session ID. If Codex st
 
 The choice applies to the whole Codex turn, including its tool continuations. Jevex does **not** reroute each internal model call. Switching models between turns may reduce prompt-cache reuse, but Codex resumes the same conversation and manages compaction. The TUI uses noninteractive `codex exec`, so Codex actions that require an interactive approval may stop rather than opening an approval dialog. There is no measured quality or quota-saving claim here; compare routes on your own tasks before trusting automatic selection.
 
+## Routing benchmark
+
+[Read the interactive report](benchmarks/report.html) and [raw measurements](benchmarks/results.json). Four coding prompts ran in each of two Codex sessions: Jevex selected Luna three times, then switched to Sol; the comparison stayed on Sol. Both passed 24/24 executable checks. Estimated API cost was $0.0758 with Jevex versus $0.0808 fixed Sol, a 6% difference in this single run. The switched turn was costlier for Jevex and had less cached input. The report separates those measurements from the possible causes and limits of this small pilot.
+
+To repeat the benchmark, run `python3 benchmarks/benchmark.py` with Codex signed in and a Jev key configured. It starts eight real Codex turns and spends tokens. The dollar figures apply public API rates to Codex-reported usage; they are not ChatGPT billing data.
+
 ## Test
 
 ```bash
