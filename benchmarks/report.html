@@ -6,7 +6,7 @@
 <title>Jevex · does switching save money?</title>
 <style>
 :root { color-scheme:dark; --bg:#0b141e; --text:#edf5fa; --muted:#a0b5c5; --line:#2b3e4d; --mint:#79dfc6; --red:#ffb1aa; font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-* { box-sizing:border-box } body { margin:0; background:radial-gradient(ellipse at 90% 0%,#173a41,transparent 40%),var(--bg); color:var(--text); }
+* { box-sizing:border-box } body { margin:0; min-height:100vh; background:radial-gradient(ellipse at 90% 0%,#173a41,transparent 40%),var(--bg); background-repeat:no-repeat; color:var(--text); }
 main { max-width:920px; margin:auto; padding:0 28px 64px } a { color:var(--mint); text-underline-offset:3px }
 nav { display:flex; justify-content:space-between; padding:25px 0; border-bottom:1px solid var(--line); font-size:13px; color:var(--muted) }
 .brand { font-weight:800; color:var(--text); letter-spacing:.15em } header { padding:46px 0 22px }
@@ -17,16 +17,17 @@ p { color:var(--muted); font-size:16px; line-height:1.65; margin:12px 0 } p.lead
 section { padding:28px 0; border-top:1px solid var(--line) } .test-note { font-size:14px } .route { color:#d2e1ea; font-size:14px }
 table { width:100%; border-collapse:collapse; font-size:15px; font-variant-numeric:tabular-nums } th { color:var(--muted); font-weight:500; text-align:left; padding:12px 0 } td { border-top:1px solid var(--line); padding:14px 0 }
 .money { text-align:right } .total td { font-weight:750; color:var(--text) } .tablewrap { overflow-x:auto }
-.whatif { margin:25px 0 30px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:28px 0; background:linear-gradient(90deg,#12313655,transparent) }
+.whatif { margin:8px 0 28px; border:1px solid var(--line); border-radius:12px; padding:28px; background:linear-gradient(90deg,#12313655,transparent) }
+.whatif > :first-child { margin-top:0 } .whatif > :last-child { margin-bottom:0 }
 label { display:block; margin-top:24px; font-size:16px; font-weight:650 } .control { display:flex; align-items:center; gap:20px; margin:18px 0 4px } input[type=range] { width:100%; accent-color:var(--mint); cursor:pointer } output { min-width:64px; font-size:20px; font-variant-numeric:tabular-nums }
-.ends { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); padding-right:84px }
-button { background:none; color:var(--mint); border:0; padding:0; text-decoration:underline; text-underline-offset:3px; cursor:pointer; font:inherit; font-size:13px; margin:15px 0 26px }
-.bar-row { display:grid; grid-template-columns:130px 1fr 86px; align-items:center; gap:15px; margin:18px 0; font-size:15px } .track { height:16px; background:#243744; border-radius:3px; overflow:hidden } .fill { height:100%; background:var(--mint) } .fill.fixed { background:#aa9ddb } .bar-cost { text-align:right; font-weight:750 }
+.ends { display:flex; justify-content:space-between; gap:12px; font-size:12px; color:var(--muted); padding-right:84px }
+button { background:none; color:var(--mint); border:0; padding:0; text-decoration:underline; text-underline-offset:3px; cursor:pointer; font:inherit; font-size:13px; margin:12px 0 10px }
+.bar-row { display:grid; grid-template-columns:130px 1fr 86px; align-items:center; gap:15px; margin:12px 0; font-size:15px } .track { height:16px; background:#243744; border-radius:3px; overflow:hidden } .fill { height:100%; background:var(--mint) } .fill.fixed { background:#aa9ddb } .bar-cost { text-align:right; font-weight:750 }
 .result { font-size:23px; font-weight:750; color:var(--mint); margin-top:25px } .result.loss { color:var(--red) } .assumption { font-size:13px } .caution { border-left:3px solid #c69d63; padding-left:18px; margin:20px 0 }
 details { border-top:1px solid var(--line); padding:20px 0 } summary { cursor:pointer; font-size:16px; font-weight:650 } details p,details li { font-size:14px; line-height:1.65; color:var(--muted) } details table { font-size:13px } details td,details th { padding:10px 12px 10px 0 }
 ul { padding-left:20px } li { margin:8px 0 } footer { border-top:1px solid var(--line); padding-top:22px; font-size:13px; color:var(--muted); line-height:1.8 }
 :focus-visible { outline:2px solid var(--mint); outline-offset:5px }
-@media(max-width:600px) { main { padding:0 20px 40px } nav .date { display:none } header { padding-top:32px } .bar-row { grid-template-columns:104px 1fr 70px; gap:9px; font-size:13px } .result { font-size:20px } .tablewrap table { min-width:620px } }
+@media(max-width:600px) { main { padding:0 20px 40px } nav .date { display:none } header { padding-top:32px } .whatif { padding:22px 18px; margin-bottom:24px } .control { gap:12px } output { min-width:58px; font-size:18px } .ends { padding-right:70px; font-size:11px } .bar-row { grid-template-columns:104px 1fr 64px; gap:9px; font-size:13px } .result { font-size:20px } .tablewrap table { min-width:620px } }
 </style>
 </head>
 <body><main>
@@ -54,17 +55,18 @@ ul { padding-left:20px } li { margin:8px 0 } footer { border-top:1px solid var(-
 </section>
 
 <div class="whatif" id="cache-risk">
-<h2>What if Codex reused more or less?</h2>
-<p>This slider changes how much input Codex reuses <strong>on Jevex's last task only</strong>. It shows what Jevex's <strong>total cost for all four tasks</strong> would be. The comparison run stays at 8.08¢.</p>
-<label for="cache-share">How much of the last task's input is reused?</label>
+<h2>How much does the cache discount matter?</h2>
+<p>Input that Codex has already processed can get a cheaper price. In the test, 19.3% of Jevex's last task got this <strong>cache discount</strong>.</p>
+<p>Move the slider to change the percentage getting that discount <strong>on the last task only</strong>. The bars show the cost of <strong>all four tasks</strong>. Always Sol stays at 8.08¢.</p>
+<label for="cache-share">Last task's input getting the cache discount</label>
 <div class="control"><input id="cache-share" type="range" min="0" max="100" step="any" value="19.262603" aria-describedby="slider-help"><output id="cache-value" for="cache-share">19.3%</output></div>
-<div class="ends"><span>0% · reuse nothing, pay more</span><span>100% · reuse everything, pay less</span></div>
+<div class="ends"><span>0% · no discount</span><span>100% · all discounted</span></div>
 <button id="reset-cache" type="button">Reset to the test result, 19.3%</button>
 <div class="bar-row"><span>Jevex total</span><div class="track"><div class="fill" id="jevex-bar"></div></div><span class="bar-cost" id="jevex-cost">7.58¢</span></div>
 <div class="bar-row"><span>Always Sol total</span><div class="track"><div class="fill fixed" id="fixed-bar"></div></div><span class="bar-cost">8.08¢</span></div>
 <p id="scenario-result" class="result" aria-live="polite"></p>
-<p id="slider-help" class="assumption">This is a what-if calculation, not another test. Only the last task's reused input changes. Its input length, output, model, and all other tasks stay the same.</p>
-<p class="assumption">Below 12.2% reuse, Jevex costs more overall. With no reuse, it would cost 8.94¢, or 11% more than Always Sol.</p>
+<p id="slider-help" class="assumption">The conversation text stays the same. Only its price changes. This calculation estimates the cost; it doesn't run Codex or predict how much cache it will find.</p>
+<p class="assumption">If less than 12.2% of the last task gets the discount, Jevex costs more overall. With no cache discount on that task, the total would be 8.94¢, or 11% more than Always Sol.</p>
 </div>
 
 <section>
