@@ -52,26 +52,28 @@ ul { padding-left:20px } li { margin:8px 0 } footer { border-top:1px solid var(-
 <p>Codex can reuse parts of the conversation it has already processed. Reused input is cheaper. This is the <strong>prompt cache</strong>.</p>
 <p>On the last task, Jevex reused <strong>19%</strong> of its input. Always Sol reused <strong>92%</strong>. Jevex also used more input and output tokens. Together, those differences ate up 92% of its earlier savings.</p>
 <p>We can't tell how many cache misses the switch itself caused from this one test.</p>
+<p><strong>Luna's cache doesn't carry over to Sol.</strong> Sol may already have matching cached input from earlier Sol requests. Our switch still reported 19% cached input, but we haven't established where those hits came from.</p>
 </section>
 
 <div class="whatif" id="cache-risk">
 <h2>How much does the cache discount matter?</h2>
-<p>Input that Codex has already processed can get a cheaper price. In the test, 19.3% of Jevex's last task got this <strong>cache discount</strong>.</p>
+<p><strong>For planning, assume 0% cached input on the first task after switching.</strong> A switch can still find some cache, but we shouldn't count on it. The slider starts at this conservative assumption.</p>
 <p>Move the slider to change the percentage getting that discount <strong>on the last task only</strong>. The bars show the cost of <strong>all four tasks</strong>. Always Sol stays at 8.08¢.</p>
 <label for="cache-share">Last task's input getting the cache discount</label>
-<div class="control"><input id="cache-share" type="range" min="0" max="100" step="any" value="19.262603" aria-describedby="slider-help"><output id="cache-value" for="cache-share">19.3%</output></div>
+<div class="control"><input id="cache-share" type="range" min="0" max="100" step="any" value="0" aria-describedby="slider-help"><output id="cache-value" for="cache-share">0.0%</output></div>
 <div class="ends"><span>0% · no discount</span><span>100% · all discounted</span></div>
-<button id="reset-cache" type="button">Reset to the test result, 19.3%</button>
-<div class="bar-row"><span>Jevex total</span><div class="track"><div class="fill" id="jevex-bar"></div></div><span class="bar-cost" id="jevex-cost">7.58¢</span></div>
+<button id="reset-cache" type="button">Show the test's measured 19.3%</button>
+<div class="bar-row"><span>Jevex total</span><div class="track"><div class="fill" id="jevex-bar"></div></div><span class="bar-cost" id="jevex-cost">8.94¢</span></div>
 <div class="bar-row"><span>Always Sol total</span><div class="track"><div class="fill fixed" id="fixed-bar"></div></div><span class="bar-cost">8.08¢</span></div>
-<p id="scenario-result" class="result" aria-live="polite"></p>
-<p id="slider-help" class="assumption">The conversation text stays the same. Only its price changes. This calculation estimates the cost; it doesn't run Codex or predict how much cache it will find.</p>
+<p id="scenario-result" class="result loss" aria-live="polite">Jevex would cost 0.86¢ more overall, 10.6% more expensive.</p>
+<p id="slider-help" class="assumption">Higher percentages are hypothetical, not promised after a switch. The conversation text stays the same. Only its price changes. This calculation doesn't run Codex or predict how much cache it will find.</p>
 <p class="assumption">If less than 12.2% of the last task gets the discount, Jevex costs more overall. With no cache discount on that task, the total would be 8.94¢, or 11% more than Always Sol.</p>
 </div>
 
 <section>
 <h2>So, is Jevex worth it?</h2>
 <p><strong>We don't know yet.</strong> The saving in this test was only 0.50¢. Reprocessing about 2,642 more input tokens on Sol would erase it.</p>
+<p>With our conservative 0% cache assumption on the switched task, Jevex would cost <strong>11% more overall</strong>. We need to test whether switches still save money under that assumption.</p>
 <p class="caution">The comparison also started without any cached input. If it had reused 90% of its input on all four tasks, its estimated cost would be 4.56¢. The recorded Jevex run would cost 66% more. That's an assumption, not a result we measured.</p>
 <p>Next, we need repeated tests on real coding work, with both runs starting from the same conversation and cache conditions. We should include switches back to Sol and compare the full cost of getting the work done.</p>
 </section>

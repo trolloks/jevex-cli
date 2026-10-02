@@ -137,26 +137,28 @@ ul {{ padding-left:20px }} li {{ margin:8px 0 }} footer {{ border-top:1px solid 
 <p>Codex can reuse parts of the conversation it has already processed. Reused input is cheaper. This is the <strong>prompt cache</strong>.</p>
 <p>On the last task, Jevex reused <strong>{analysis['cache_share']:.0%}</strong> of its input. Always Sol reused <strong>{analysis['base_share']:.0%}</strong>. Jevex also used more input and output tokens. Together, those differences ate up {analysis['last_excess'] / analysis['early_saving']:.0%} of its earlier savings.</p>
 <p>We can't tell how many cache misses the switch itself caused from this one test.</p>
+<p><strong>Luna's cache doesn't carry over to Sol.</strong> Sol may already have matching cached input from earlier Sol requests. Our switch still reported {analysis['cache_share']:.0%} cached input, but we haven't established where those hits came from.</p>
 </section>
 
 <div class="whatif" id="cache-risk">
 <h2>How much does the cache discount matter?</h2>
-<p>Input that Codex has already processed can get a cheaper price. In the test, {analysis['cache_share']:.1%} of Jevex's last task got this <strong>cache discount</strong>.</p>
+<p><strong>For planning, assume 0% cached input on the first task after switching.</strong> A switch can still find some cache, but we shouldn't count on it. The slider starts at this conservative assumption.</p>
 <p>Move the slider to change the percentage getting that discount <strong>on the last task only</strong>. The bars show the cost of <strong>all four tasks</strong>. Always Sol stays at {b * 100:.2f}¢.</p>
 <label for="cache-share">Last task's input getting the cache discount</label>
-<div class="control"><input id="cache-share" type="range" min="0" max="100" step="any" value="{analysis['cache_share'] * 100:.6f}" aria-describedby="slider-help"><output id="cache-value" for="cache-share">{analysis['cache_share']:.1%}</output></div>
+<div class="control"><input id="cache-share" type="range" min="0" max="100" step="any" value="0" aria-describedby="slider-help"><output id="cache-value" for="cache-share">0.0%</output></div>
 <div class="ends"><span>0% · no discount</span><span>100% · all discounted</span></div>
-<button id="reset-cache" type="button">Reset to the test result, {analysis['cache_share']:.1%}</button>
-<div class="bar-row"><span>Jevex total</span><div class="track"><div class="fill" id="jevex-bar"></div></div><span class="bar-cost" id="jevex-cost">{a * 100:.2f}¢</span></div>
+<button id="reset-cache" type="button">Show the test's measured {analysis['cache_share']:.1%}</button>
+<div class="bar-row"><span>Jevex total</span><div class="track"><div class="fill" id="jevex-bar"></div></div><span class="bar-cost" id="jevex-cost">{no_cache_cost * 100:.2f}¢</span></div>
 <div class="bar-row"><span>Always Sol total</span><div class="track"><div class="fill fixed" id="fixed-bar"></div></div><span class="bar-cost">{b * 100:.2f}¢</span></div>
-<p id="scenario-result" class="result" aria-live="polite"></p>
-<p id="slider-help" class="assumption">The conversation text stays the same. Only its price changes. This calculation estimates the cost; it doesn't run Codex or predict how much cache it will find.</p>
+<p id="scenario-result" class="result loss" aria-live="polite">Jevex would cost {(no_cache_cost - b) * 100:.2f}¢ more overall, {(no_cache_cost - b) / b:.1%} more expensive.</p>
+<p id="slider-help" class="assumption">Higher percentages are hypothetical, not promised after a switch. The conversation text stays the same. Only its price changes. This calculation doesn't run Codex or predict how much cache it will find.</p>
 <p class="assumption">If less than {analysis['break_even_share']:.1%} of the last task gets the discount, Jevex costs more overall. With no cache discount on that task, the total would be {no_cache_cost * 100:.2f}¢, or {(no_cache_cost - b) / b:.0%} more than Always Sol.</p>
 </div>
 
 <section>
 <h2>So, is Jevex worth it?</h2>
 <p><strong>We don't know yet.</strong> The saving in this test was only {analysis['margin'] * 100:.2f}¢. Reprocessing about {analysis['miss_headroom']:,.0f} more input tokens on Sol would erase it.</p>
+<p>With our conservative 0% cache assumption on the switched task, Jevex would cost <strong>{(no_cache_cost - b) / b:.0%} more overall</strong>. We need to test whether switches still save money under that assumption.</p>
 <p class="caution">The comparison also started without any cached input. If it had reused 90% of its input on all four tasks, its estimated cost would be {analysis['warm_fixed'] * 100:.2f}¢. The recorded Jevex run would cost {warm_extra:.0%} more. That's an assumption, not a result we measured.</p>
 <p>Next, we need repeated tests on real coding work, with both runs starting from the same conversation and cache conditions. We should include switches back to Sol and compare the full cost of getting the work done.</p>
 </section>
