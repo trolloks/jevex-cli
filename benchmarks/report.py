@@ -47,30 +47,18 @@ def cache_analysis(data):
 
 def render(data, tasks):
     adaptive, fixed = data["strategies"]
-
-    def total(strategy):
-        turns = strategy["turns"]
-        return {
-            "cost": sum((t["cost_usd"] or 0) + t["router_cost_usd"] for t in turns),
-            "seconds": sum(t["seconds"] + t["router_seconds"] for t in turns),
-            "passed": sum(t["passed"] for t in turns),
-            "checks": sum(t["checks"] for t in turns),
-            "input": sum(t["usage"].get("input_tokens", 0) for t in turns),
-            "cached": sum(t["usage"].get("cached_input_tokens", 0) for t in turns),
-            "jev_tokens": sum(t["router_usage"].get("input_tokens", 0) for t in turns),
-        }
-
-    a, b = total(adaptive), total(fixed)
-    savings = (b["cost"] - a["cost"]) / b["cost"] if b["cost"] else 0
-    outcome = "Viability not established"
-    max_cost = max(a["cost"], b["cost"], 0.000001)
-
-    def bar(strategy, stats, color):
-        width = 100 * stats["cost"] / max_cost
-        return (f'<div class="bar-row"><div class="bar-label">{escape(strategy)}</div>'
-                f'<div class="track"><div class="fill {color}" style="width:{width:.1f}%"></div></div>'
-                f'<div class="bar-value">${stats["cost"]:.4f}</div></div>')
-
+    analysis = cache_analysis(data)
+    a, b = analysis["routed_cost"], analysis["fixed_cost"]
+    savings = (b - a) / b
+    switched = adaptive["turns"][-1]
+    fixed_last = fixed["turns"][-1]
+    first_fixed = sum(t["cost_usd"] for t in fixed["turns"][:-1])
+    last_cost = (switched["cost_usd"] or 0) + switched["router_cost_usd"]
+    passed = sum(t["passed"] for t in adaptive["turns"])
+    fixed_passed = sum(t["passed"] for t in fixed["turns"])
+    checks = sum(t["checks"] for t in adaptive["turns"])
+    check_summary = f"Both passed {passed}/{checks} checks." if passed == fixed_passed else f"Jevex passed {passed}/{checks}; Always Sol passed {fixed_passed}/{checks}."
+    route = " → ".join("Luna" if t["model"] == "gpt-6-luna" else "Sol" if t["model"] == data["baseline"] else t["model"] for t in adaptive["turns"])
     rows = []
     for index, task in enumerate(tasks):
         for strategy in (adaptive, fixed):
@@ -78,139 +66,154 @@ def render(data, tasks):
                 continue
             turn = strategy["turns"][index]
             usage = turn["usage"]
-            cache_rate = usage.get("cached_input_tokens", 0) / usage.get("input_tokens", 1) if usage.get("input_tokens") else 0
+            reuse = usage["cached_input_tokens"] / usage["input_tokens"]
             cost = (turn["cost_usd"] or 0) + turn["router_cost_usd"]
-            score_class = "pass" if turn["passed"] == turn["checks"] else "fail"
-            rows.append(f'<tr><td class="task">{escape(task["name"])}</td><td>{escape(strategy["name"])}</td>'
-                        f'<td><code>{escape(turn["model"])}</code></td><td class="{score_class}">{turn["passed"]}/{turn["checks"]}</td>'
-                        f'<td>{cache_rate:.0%}</td><td>{turn["seconds"] + turn["router_seconds"]:.1f}s</td><td>${cost:.4f}</td></tr>')
-    route = " <span class='arrow'>→</span> ".join(f'<code>{escape(t["model"])}</code>' for t in adaptive["turns"])
-    model_switches = sum(adaptive["turns"][i]["model"] != adaptive["turns"][i-1]["model"] for i in range(1, len(adaptive["turns"])))
-    before_switch = sum((t["cost_usd"] or 0) + t["router_cost_usd"] for t in adaptive["turns"][:-1])
-    before_fixed = sum(t["cost_usd"] or 0 for t in fixed["turns"][:-1])
-    switched = adaptive["turns"][-1]
-    fixed_last = fixed["turns"][-1]
-    switched_cache = switched["usage"]["cached_input_tokens"] / switched["usage"]["input_tokens"]
-    fixed_last_cache = fixed_last["usage"]["cached_input_tokens"] / fixed_last["usage"]["input_tokens"]
-    a_cache = a["cached"] / a["input"] if a["input"] else 0
-    b_cache = b["cached"] / b["input"] if b["input"] else 0
-    status = "caution"
-    analysis = cache_analysis(data)
-    breakdown_rows = "".join(f'<tr><td>{escape(label)}</td><td>${value:.5f}</td></tr>' for label, value in analysis["breakdown"])
-    scenario_rows = []
-    for label, share, write_share in [
-        ("No cache reads", 0, 0), ("10% cached", .1, 0),
-        ("Observed cache share", switched_cache, 0), ("50% cached", .5, 0),
-        ("Fixed Sol cache share", fixed_last_cache, 0),
-        ("No reads; noncached input written", 0, 1),
-    ]:
-        last_cost = scenario_cost(switched, analysis["rates"], share, write_share)
-        session_cost = analysis["prefix_cost"] + last_cost
-        difference = (session_cost - b["cost"]) / b["cost"]
-        scenario_rows.append(f'<tr><td>{escape(label)}</td><td>${last_cost:.4f}</td><td>${session_cost:.4f}</td>'
-                             f'<td class="{"fail" if difference > 0 else "pass"}">{abs(difference):.1%} {"more" if difference > 0 else "less"}</td></tr>')
+            rows.append(f'<tr><td>{escape(task["name"])}</td><td>{escape(strategy["name"])}</td>'
+                        f'<td>{escape(turn["model"])}</td><td>{turn["passed"]}/{turn["checks"]}</td>'
+                        f'<td>{reuse:.0%}</td><td>{cost * 100:.2f}¢</td></tr>')
+    breakdown = "".join(f'<tr><td>{escape(label)}</td><td>{value * 100:.3f}¢</td></tr>' for label, value in analysis["breakdown"])
     context_rows = []
     for tokens in (10_000, 30_000, 100_000):
         costs = []
         for model in ("gpt-6-luna", data["baseline"]):
             rates = data["pricing"][model]
-            costs.append(f'<td>${tokens * (rates["input"] - rates["cached"]) / 1_000_000:.4f} / '
-                         f'${tokens * (rates["write"] - rates["cached"]) / 1_000_000:.4f}</td>')
+            costs.append(f'<td>{tokens * (rates["input"] - rates["cached"]) / 10_000:.2f}¢</td>')
         context_rows.append(f'<tr><td>{tokens:,} tokens</td>{"".join(costs)}</tr>')
+    no_cache_cost = analysis["prefix_cost"] + scenario_cost(switched, analysis["rates"], 0)
+    all_write_cost = analysis["prefix_cost"] + scenario_cost(switched, analysis["rates"], 0, 1)
+    warm_extra = (a - analysis["warm_fixed"]) / analysis["warm_fixed"]
 
     return f'''<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Jevex · routing benchmark</title>
+<title>Jevex · does switching save money?</title>
 <style>
-:root {{ color-scheme:dark; --bg:#09111c; --surface:#111d2c; --line:#24364a; --text:#edf5fa; --muted:#91a7ba; --mint:#75e0c7; --violet:#b4a4f5; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }}
-* {{ box-sizing:border-box }} html {{ scroll-behavior:smooth }} body {{ margin:0; color:var(--text); background:radial-gradient(circle at 82% 0%,#183c48 0,transparent 34%),radial-gradient(circle at 0% 40%,#161b38 0,transparent 26%),var(--bg); }}
-a {{ color:var(--mint); text-underline-offset:3px }} .shell {{ max-width:1120px; margin:0 auto; padding:0 28px 72px }}
-.topbar {{ display:flex; align-items:center; justify-content:space-between; padding:27px 0; border-bottom:1px solid var(--line) }}
-.brand {{ font-weight:900; letter-spacing:.2em; font-size:15px }} .topbar .meta {{ color:var(--muted); font-size:13px }}
-.hero {{ padding:68px 0 50px; display:grid; grid-template-columns:1.25fr .75fr; gap:34px; align-items:end }}
-.eyebrow {{ color:var(--mint); text-transform:uppercase; font-size:12px; font-weight:800; letter-spacing:.18em }}
-h1 {{ margin:17px 0 22px; font-size:clamp(48px,6.7vw,82px); line-height:.98; letter-spacing:-.07em }}
-.intro {{ font-size:18px; line-height:1.6; color:#b8c8d6; max-width:670px }}
-.verdict {{ border:1px solid #315469; background:linear-gradient(145deg,#173549,#18273f); border-radius:22px; padding:26px; box-shadow:0 25px 65px #0003 }}
-.verdict.win {{ border-color:#347e6d; background:linear-gradient(145deg,#173e41,#172a3a) }}
-.verdict .label,.label {{ color:var(--muted); font-weight:800; letter-spacing:.14em; text-transform:uppercase; font-size:11px }}
-.verdict strong {{ display:block; margin:15px 0; font-size:27px; line-height:1.1; letter-spacing:-.04em }}
-.verdict p {{ margin:0; color:#a9becb; font-size:14px; line-height:1.5 }}
-.cards {{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:16px 0 46px }}
-.card,.panel {{ background:var(--surface); border:1px solid var(--line); border-radius:19px }} .card {{ padding:22px 24px }}
-.number {{ display:block; font-weight:850; font-size:clamp(28px,3.6vw,44px); letter-spacing:-.055em; margin:10px 0 3px }}
-.number.good {{ color:var(--mint) }} .number.bad {{ color:#f6a7aa }} .detail {{ color:var(--muted); font-size:13px; line-height:1.45 }}
-.section-head {{ display:flex; justify-content:space-between; align-items:baseline; gap:14px; margin:40px 0 16px }} h2 {{ margin:0; letter-spacing:-.04em; font-size:26px }}
-.section-head span {{ color:var(--muted); font-size:13px }} .panel {{ padding:25px 28px }}
-.route {{ font-size:16px; line-height:2; overflow-wrap:anywhere }} code {{ font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.88em; color:#c6e4ed }}
-.route code {{ display:inline-block; background:#223247; border:1px solid #34475c; border-radius:8px; padding:3px 8px }} .arrow {{ color:var(--mint); margin:0 8px }}
-.bar-row {{ display:grid; grid-template-columns:88px 1fr 85px; gap:18px; align-items:center; margin:21px 0 }} .bar-label,.bar-value {{ font-weight:750; font-size:14px }} .bar-value {{ text-align:right; font-variant-numeric:tabular-nums }}
-.track {{ height:22px; border-radius:99px; background:#26374d; overflow:hidden }} .fill {{ height:100%; border-radius:99px }} .fill.mint {{ background:linear-gradient(90deg,#299f94,#7ae4c9) }} .fill.violet {{ background:linear-gradient(90deg,#6a61b7,#b8a6f2) }}
-.tablewrap {{ overflow-x:auto }} table {{ border-collapse:collapse; width:100%; font-size:14px }} th {{ color:var(--muted); text-transform:uppercase; font-size:11px; letter-spacing:.1em; text-align:left; padding:0 12px 14px; white-space:nowrap }} td {{ border-top:1px solid var(--line); padding:17px 12px; font-variant-numeric:tabular-nums; white-space:nowrap }} td.task {{ font-weight:750 }} td.pass {{ color:var(--mint); font-weight:800 }} td.fail {{ color:#f6a7aa; font-weight:800 }}
-.notes {{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px }} .note {{ padding:21px 24px; border:1px solid var(--line); background:#101a29; border-radius:17px }} .note strong {{ display:block; font-size:14px; margin-bottom:7px }} .note p {{ color:var(--muted); line-height:1.55; font-size:13px; margin:0 }}
-.explain {{ color:#b8c8d6; line-height:1.65; font-size:15px }} .warning {{ border-color:#78623f; background:linear-gradient(145deg,#2b251e,#151e2d) }}
-.analysis-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:16px }} .analysis-grid .tablewrap {{ margin-top:18px; padding:0 }}
-.control {{ display:flex; gap:18px; align-items:center; margin:24px 0 }} .control input {{ width:100%; accent-color:var(--mint) }} .control output {{ min-width:65px; text-align:right; font-variant-numeric:tabular-nums }}
-.scenario-result {{ font-size:23px; font-weight:750; line-height:1.5 }} .formula {{ display:block; padding:15px 0; line-height:1.7; overflow-wrap:anywhere }}
-footer {{ margin-top:46px; padding-top:24px; border-top:1px solid var(--line); color:var(--muted); line-height:1.8; font-size:13px }} footer a {{ margin-right:13px }}
-@media(max-width:800px) {{ .hero {{ grid-template-columns:1fr; padding-top:50px }} .cards {{ grid-template-columns:1fr }} .notes,.analysis-grid {{ grid-template-columns:1fr }} .topbar .meta {{ display:none }} .bar-row {{ grid-template-columns:70px 1fr 75px; gap:9px }} table {{ min-width:680px }} }}
+:root {{ color-scheme:dark; --bg:#0b141e; --text:#edf5fa; --muted:#a0b5c5; --line:#2b3e4d; --mint:#79dfc6; --red:#ffb1aa; font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }}
+* {{ box-sizing:border-box }} body {{ margin:0; background:radial-gradient(ellipse at 90% 0%,#173a41,transparent 40%),var(--bg); color:var(--text); }}
+main {{ max-width:920px; margin:auto; padding:0 28px 64px }} a {{ color:var(--mint); text-underline-offset:3px }}
+nav {{ display:flex; justify-content:space-between; padding:25px 0; border-bottom:1px solid var(--line); font-size:13px; color:var(--muted) }}
+.brand {{ font-weight:800; color:var(--text); letter-spacing:.15em }} header {{ padding:46px 0 22px }}
+.eyebrow {{ margin:0 0 12px; color:var(--mint); font-size:13px; font-weight:650 }}
+h1 {{ max-width:780px; margin:0 0 22px; font-size:clamp(34px,5.5vw,57px); line-height:1.08; letter-spacing:-.045em }}
+h2 {{ font-size:25px; letter-spacing:-.025em; margin:0 0 14px }} h3 {{ font-size:18px; margin:26px 0 10px }}
+p {{ color:var(--muted); font-size:16px; line-height:1.65; margin:12px 0 }} p.lead {{ max-width:760px; font-size:20px; color:#d2e1ea }} strong {{ color:var(--text) }}
+section {{ padding:28px 0; border-top:1px solid var(--line) }} .test-note {{ font-size:14px }} .route {{ color:#d2e1ea; font-size:14px }}
+table {{ width:100%; border-collapse:collapse; font-size:15px; font-variant-numeric:tabular-nums }} th {{ color:var(--muted); font-weight:500; text-align:left; padding:12px 0 }} td {{ border-top:1px solid var(--line); padding:14px 0 }}
+.money {{ text-align:right }} .total td {{ font-weight:750; color:var(--text) }} .tablewrap {{ overflow-x:auto }}
+.whatif {{ margin:25px 0 30px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:28px 0; background:linear-gradient(90deg,#12313655,transparent) }}
+label {{ display:block; margin-top:24px; font-size:16px; font-weight:650 }} .control {{ display:flex; align-items:center; gap:20px; margin:18px 0 4px }} input[type=range] {{ width:100%; accent-color:var(--mint); cursor:pointer }} output {{ min-width:64px; font-size:20px; font-variant-numeric:tabular-nums }}
+.ends {{ display:flex; justify-content:space-between; font-size:12px; color:var(--muted); padding-right:84px }}
+button {{ background:none; color:var(--mint); border:0; padding:0; text-decoration:underline; text-underline-offset:3px; cursor:pointer; font:inherit; font-size:13px; margin:15px 0 26px }}
+.bar-row {{ display:grid; grid-template-columns:130px 1fr 86px; align-items:center; gap:15px; margin:18px 0; font-size:15px }} .track {{ height:16px; background:#243744; border-radius:3px; overflow:hidden }} .fill {{ height:100%; background:var(--mint) }} .fill.fixed {{ background:#aa9ddb }} .bar-cost {{ text-align:right; font-weight:750 }}
+.result {{ font-size:23px; font-weight:750; color:var(--mint); margin-top:25px }} .result.loss {{ color:var(--red) }} .assumption {{ font-size:13px }} .caution {{ border-left:3px solid #c69d63; padding-left:18px; margin:20px 0 }}
+details {{ border-top:1px solid var(--line); padding:20px 0 }} summary {{ cursor:pointer; font-size:16px; font-weight:650 }} details p,details li {{ font-size:14px; line-height:1.65; color:var(--muted) }} details table {{ font-size:13px }} details td,details th {{ padding:10px 12px 10px 0 }}
+ul {{ padding-left:20px }} li {{ margin:8px 0 }} footer {{ border-top:1px solid var(--line); padding-top:22px; font-size:13px; color:var(--muted); line-height:1.8 }}
+:focus-visible {{ outline:2px solid var(--mint); outline-offset:5px }}
+@media(max-width:600px) {{ main {{ padding:0 20px 40px }} nav .date {{ display:none }} header {{ padding-top:32px }} .bar-row {{ grid-template-columns:104px 1fr 70px; gap:9px; font-size:13px }} .result {{ font-size:20px }} .tablewrap table {{ min-width:620px }} }}
 </style>
 </head>
-<body><main class="shell">
-<nav class="topbar"><div class="brand">JEVEX / LAB</div><div class="meta">RUN 001 &nbsp;·&nbsp; {escape(data['created_utc'][:10])} &nbsp;·&nbsp; {escape(data['codex_version'])}</div></nav>
-    <header class="hero"><div><div class="eyebrow">A real, small-scale routing test</div><h1>Does routing<br>pay for itself?</h1><p class="intro">Four Python coding turns, twice: one conversation routed by Jevex and one pinned to GPT-6.1 Sol. We checked generated functions, measured Codex's cache and time, then priced the observed tokens.</p></div>
-    <aside class="verdict {status}"><div class="label">Pilot readout</div><strong>{escape(outcome)}</strong><p>The switch consumed {analysis['last_excess'] / analysis['early_saving']:.0%} of the early savings. A cold first turn on fixed Sol makes the headline especially sensitive to the comparison's starting state.</p></aside></header>
-<section class="cards" aria-label="Key metrics">
-<div class="card"><div class="label">Observed estimated saving</div><span class="number {'good' if savings > 0 else 'bad'}">{savings:.1%}</span><div class="detail">Jevex ${a['cost']:.4f} · Fixed ${b['cost']:.4f}</div></div>
-<div class="card"><div class="label">Executable checks</div><span class="number">{a['passed']}/{a['checks']}</span><div class="detail">Jevex · Fixed Sol {b['passed']}/{b['checks']}</div></div>
-<div class="card"><div class="label">Elapsed session time</div><span class="number">{a['seconds']:.0f}s</span><div class="detail">Jevex · Fixed Sol {b['seconds']:.0f}s</div></div></section>
-    <section class="panel"><h2>The switch changed the economics</h2><p class="intro">Jev chose Luna for the first three tasks, then Sol for the parser. The first three cost ${before_switch:.4f} versus ${before_fixed:.4f} on fixed Sol. After switching, the Jevex turn cost ${(switched['cost_usd'] or 0) + switched['router_cost_usd']:.4f} versus ${fixed_last['cost_usd']:.4f}; cached input was {switched_cache:.0%} versus {fixed_last_cache:.0%}. Most of the early saving disappeared. The switch coincided with lower cache reuse, but this run cannot prove it caused the difference.</p></section>
-<div class="section-head" id="cache-risk"><h2>Only ${analysis['margin']:.4f} of headroom</h2><span>Recorded dollars, not causal attribution</span></div>
-<section class="analysis-grid">
-<div class="panel warning"><h2>About {analysis['miss_headroom']:,.0f} more misses erase the win</h2><p class="explain">At the recorded Sol rates, every 1,000 tokens moved from a cache read to ordinary input adds ${(analysis['rates']['input'] - analysis['rates']['cached']) / 1000:.4f}. The last turn's cache share needs to stay above {analysis['break_even_share']:.1%} to keep this entire session cheaper, holding all other measured values fixed.</p><p class="explain">With zero cache reads on that turn, the routed session would be ${analysis['prefix_cost'] + scenario_cost(switched, analysis['rates'], 0):.4f}, or {(analysis['prefix_cost'] + scenario_cost(switched, analysis['rates'], 0) - b['cost']) / b['cost']:.1%} more than the recorded fixed session.</p></div>
-<div class="panel"><h2>Where the parser's excess cost sits</h2><p class="explain">A price decomposition of the ${analysis['last_excess']:.5f} difference. Reprice routed input at fixed Sol's cache share first, then separate token-volume and output differences. This is accounting, not an isolated switch penalty.</p><div class="tablewrap"><table><thead><tr><th>Component</th><th>Extra cost</th></tr></thead><tbody>{breakdown_rows}</tbody></table></div></div>
+<body><main>
+<nav><span class="brand">JEVEX / LAB</span><span class="date">One small test · {escape(data['created_utc'][:10])}</span></nav>
+<header>
+<p class="eyebrow">Does switching models save money?</p>
+<h1>One switch nearly wiped out the savings.</h1>
+<p class="lead">Jevex finished {savings:.0%} cheaper, saving just {analysis['margin'] * 100:.2f}¢ across four tasks. That's too little evidence to promise reliable savings.</p>
+</header>
+<table aria-label="Estimated test cost in US cents">
+<thead><tr><th>Estimated cost in US cents</th><th class="money">Jevex</th><th class="money">Always Sol</th></tr></thead>
+<tbody>
+<tr><td>First three tasks</td><td class="money">{analysis['prefix_cost'] * 100:.2f}¢</td><td class="money">{first_fixed * 100:.2f}¢</td></tr>
+<tr><td>Last task, after the switch</td><td class="money">{last_cost * 100:.2f}¢</td><td class="money">{fixed_last['cost_usd'] * 100:.2f}¢</td></tr>
+<tr class="total"><td>All four tasks</td><td class="money">{a * 100:.2f}¢</td><td class="money">{b * 100:.2f}¢</td></tr>
+</tbody></table>
+<p class="test-note">{check_summary} Jevex used <span class="route">{escape(route)}</span>. The other run used Sol for every task.</p>
+<p class="test-note">We estimated costs from token counts and public API prices. These aren't actual billed charges.</p>
+
+<section>
+<h2>Why did the last task cost so much?</h2>
+<p>Codex can reuse parts of the conversation it has already processed. Reused input is cheaper. This is the <strong>prompt cache</strong>.</p>
+<p>On the last task, Jevex reused <strong>{analysis['cache_share']:.0%}</strong> of its input. Always Sol reused <strong>{analysis['base_share']:.0%}</strong>. Jevex also used more input and output tokens. Together, those differences ate up {analysis['last_excess'] / analysis['early_saving']:.0%} of its earlier savings.</p>
+<p>We can't tell how many cache misses the switch itself caused from this one test.</p>
 </section>
-<div class="section-head"><h2>Stress-test cache reuse</h2><span>Hypothetical · no additional model calls</span></div>
-<section class="panel"><label for="cache-share">Cached share of the routed parser turn's {switched['usage']['input_tokens']:,} input tokens</label>
-<div class="control"><input id="cache-share" type="range" min="0" max="100" step="any" value="{switched_cache * 100:.6f}"><output id="cache-value" for="cache-share">{switched_cache:.1%}</output></div>
-<div id="scenario-result" class="scenario-result" aria-live="polite"></div><p class="explain">The first three routed turns, output tokens, router costs, and measured fixed comparison stay constant. Noncached input uses the ordinary rate. Adjusting this slider predicts cost arithmetic, not attainable cache performance or answer quality.</p>
-<div class="tablewrap"><table><thead><tr><th>Parser cache assumption</th><th>Parser cost</th><th>Routed session</th><th>Versus measured fixed</th></tr></thead><tbody>{''.join(scenario_rows)}</tbody></table></div></section>
-<section class="panel warning" style="margin-top:18px"><h2>The baseline's cache state can flip the result</h2><p class="explain">The fixed session started with zero cached input. If all four fixed turns instead reused 90% of their measured input tokens, with their actual output counts unchanged, its estimated cost would be ${analysis['warm_fixed']:.4f}. The recorded routed session would then be {(a['cost'] - analysis['warm_fixed']) / analysis['warm_fixed']:.0%} more expensive. This is a sensitivity scenario, not a rerun; 90% reuse is close to the fixed session's three observed follow-up turns.</p></section>
-<div class="section-head"><h2>What a lost context prefix can cost</h2><span>Per miss · input only · recorded short-context rates</span></div>
-<section class="panel"><p class="explain">Reprocessing the same previously cached tokens costs the difference between the destination model's cached rate and its ordinary-input or cache-write rate. The two figures below show those alternatives. They are not additive charges.</p><div class="tablewrap"><table><thead><tr><th>Previously cached tokens missed</th><th>Luna: ordinary / write</th><th>Sol: ordinary / write</th></tr></thead><tbody>{''.join(context_rows)}</tbody></table></div>
-<code class="formula">extra input cost = missed cached tokens × (destination input or write rate − destination cached rate) / 1,000,000</code>
-<p class="explain">This isolates cache loss within one destination model. A cross-model decision must also compare input and output rates, token counts, retries, and quality. At these rates, cold Luna input costs the same as warm Sol input ($0.10 per million); cheaper Luna output may still save money. Switching back to cold Sol can overwhelm those savings as context grows.</p>
-<p class="explain">A same-model session can miss too: prefix edits, request settings, expiration, and server placement affect reuse. A model change prevents assuming that the old model's cached prefix transfers. These API mechanics are documented in <a href="https://developers.openai.com/api/docs/guides/prompt-caching">prompt caching</a> and <a href="https://developers.openai.com/api/docs/guides/prompt-caching/diagnostics">cache diagnostics</a>; they do not specify this login's invoice.</p></section>
-<div class="section-head"><h2>The route</h2><span>{model_switches} model switch{'es' if model_switches != 1 else ''} · Jev input {a['jev_tokens']:,} tokens</span></div>
-<section class="panel route">{route}</section>
-<div class="section-head"><h2>Estimated cost</h2><span>Standard short-context API prices, including Jev</span></div>
-<section class="panel" aria-label="Estimated cost comparison">{bar('Jevex',a,'mint')}{bar('Fixed Sol',b,'violet')}</section>
-<div class="section-head"><h2>Every turn</h2><span>Observed cache reuse: Jevex {a_cache:.0%} · Fixed {b_cache:.0%}</span></div>
-<section class="panel tablewrap"><table><thead><tr><th>Task</th><th>Strategy</th><th>Model</th><th>Checks</th><th>Cached input</th><th>Elapsed</th><th>Est. cost</th></tr></thead><tbody>{''.join(rows)}</tbody></table></section>
-<div class="section-head"><h2>What the pilot cannot prove</h2></div>
-<section class="notes">
-<div class="note"><strong>Small and selected</strong><p>One session per strategy, Jevex first. The first routed turn read {adaptive['turns'][0]['usage'].get('cached_input_tokens',0):,} cached tokens; the first fixed turn read {fixed['turns'][0]['usage'].get('cached_input_tokens',0):,}. The parser was added to exercise a switch, not sampled from a typical workload. Both fourth turns resumed in a fresh temporary directory. Cache placement, ordering, context changes, and task variance remain confounded.</p></div>
-<div class="note"><strong>Narrow quality signal</strong><p>The grader checks pure Python function outputs. It does not assess repository-scale engineering, maintainability, security, or whether a tool-using Codex turn succeeds.</p></div>
-<div class="note"><strong>Modeled dollars</strong><p>Codex ran through an existing login. All recorded cache-write counts are zero; this does not verify invoice-level write accounting. The USD estimate treats other input at the ordinary rate. The zero-read/write scenario explicitly prices those tokens at the write rate instead. Unreported writes, prewarming, retries, or tool charges could change the result; ChatGPT quotas are not measured here.</p></div>
-<div class="note"><strong>Cache and context</strong><p>Codex reports cumulative session usage; we subtract prior totals. Switching models can reduce cache hits, but this pilot does not isolate that cause. The router saw only each current prompt.</p></div>
+
+<div class="whatif" id="cache-risk">
+<h2>What if Codex reused more or less?</h2>
+<p>This slider changes how much input Codex reuses <strong>on Jevex's last task only</strong>. It shows what Jevex's <strong>total cost for all four tasks</strong> would be. The comparison run stays at {b * 100:.2f}¢.</p>
+<label for="cache-share">How much of the last task's input is reused?</label>
+<div class="control"><input id="cache-share" type="range" min="0" max="100" step="any" value="{analysis['cache_share'] * 100:.6f}" aria-describedby="slider-help"><output id="cache-value" for="cache-share">{analysis['cache_share']:.1%}</output></div>
+<div class="ends"><span>0% · reuse nothing, pay more</span><span>100% · reuse everything, pay less</span></div>
+<button id="reset-cache" type="button">Reset to the test result, {analysis['cache_share']:.1%}</button>
+<div class="bar-row"><span>Jevex total</span><div class="track"><div class="fill" id="jevex-bar"></div></div><span class="bar-cost" id="jevex-cost">{a * 100:.2f}¢</span></div>
+<div class="bar-row"><span>Always Sol total</span><div class="track"><div class="fill fixed" id="fixed-bar"></div></div><span class="bar-cost">{b * 100:.2f}¢</span></div>
+<p id="scenario-result" class="result" aria-live="polite"></p>
+<p id="slider-help" class="assumption">This is a what-if calculation, not another test. Only the last task's reused input changes. Its input length, output, model, and all other tasks stay the same.</p>
+<p class="assumption">Below {analysis['break_even_share']:.1%} reuse, Jevex costs more overall. With no reuse, it would cost {no_cache_cost * 100:.2f}¢, or {(no_cache_cost - b) / b:.0%} more than Always Sol.</p>
+</div>
+
+<section>
+<h2>So, is Jevex worth it?</h2>
+<p><strong>We don't know yet.</strong> The saving in this test was only {analysis['margin'] * 100:.2f}¢. Reprocessing about {analysis['miss_headroom']:,.0f} more input tokens on Sol would erase it.</p>
+<p class="caution">The comparison also started without any cached input. If it had reused 90% of its input on all four tasks, its estimated cost would be {analysis['warm_fixed'] * 100:.2f}¢. The recorded Jevex run would cost {warm_extra:.0%} more. That's an assumption, not a result we measured.</p>
+<p>Next, we need repeated tests on real coding work, with both runs starting from the same conversation and cache conditions. We should include switches back to Sol and compare the full cost of getting the work done.</p>
 </section>
-<div class="section-head"><h2>What would establish viability?</h2><span>The next experiment</span></div>
-<section class="panel"><p class="explain">Use the same starting conversation and repository tasks for fixed Sol, unrestricted routing, and routing that switches less often. Include Sol → Luna → Sol, multiple context lengths, tools, and executable completion checks. Repeat with reversed order and measured cold and warm starts. Capture cache reads, writes, retries, full token usage, and invoice costs where available. Compare total cost per successful task rather than the cheapest isolated turn.</p><p class="explain">Until that experiment succeeds, this wrapper is a routing prototype. This pilot shows how easily cache loss can consume a nominal saving; it does not establish a reliable cost advantage.</p></section>
-<footer>Data: <a href="results.json">results.json</a> · Reproduce: <code>python3 benchmarks/benchmark.py</code><br>
-Rates: <a href="https://developers.openai.com/api/docs/models/gpt-6-luna">Luna</a><a href="https://developers.openai.com/api/docs/models/gpt-6.1-sol">Sol 6.1</a><a href="https://developers.openai.com/api/docs/pricing">OpenAI pricing</a><a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">Jev pricing</a>. As of 2026-10-02. Catalog startup: {data['catalog_seconds']:.2f}s (excluded from per-session wall time).</footer>
-</main><script>
+
+<details>
+<summary>See the task results and test limits</summary>
+<div class="tablewrap"><table><thead><tr><th>Task</th><th>Run</th><th>Model</th><th>Checks passed</th><th>Input reused</th><th>Cost</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>
+<ul>
+<li>We ran four small Python tasks once per approach. Passing these checks doesn't prove the models can complete larger coding jobs.</li>
+<li>We added the last task specifically to get a model switch. These tasks aren't a sample of everyday coding work.</li>
+<li>Jevex ran first. Its first task reused some input; the other run's first task reused none. The starting cache conditions weren't equal.</li>
+<li>We resumed both conversations in a new temporary directory for the last task. That changed the request context too.</li>
+<li>Codex reported running token totals. We subtracted the earlier totals to get each task's usage. Jev only saw the current prompt when choosing a model.</li>
+</ul>
+<p>For a stronger test, use the same starting conversation, repeat in both orders, try longer contexts and tool use, and compare Always Sol with routing that switches less often. Count retries and failed work too.</p>
+</details>
+
+<details>
+<summary>See how we estimated cache costs</summary>
+<h3>Why the last task cost {analysis['last_excess'] * 100:.2f}¢ more</h3>
+<p>This splits the price difference by cache reuse and token counts. It doesn't prove the switch caused every cache miss.</p>
+<table><thead><tr><th>Difference</th><th>Extra cost</th></tr></thead><tbody>{breakdown}</tbody></table>
+<h3>What happens when previously reused text needs processing again?</h3>
+<p>Each row below shows the added cost of processing that many tokens at the regular input rate instead of the cheaper cached rate. It doesn't include output or retries.</p>
+<table><thead><tr><th>Input processed again</th><th>Extra on Luna</th><th>Extra on Sol</th></tr></thead><tbody>{''.join(context_rows)}</tbody></table>
+<p>At the rates used here, new Luna input costs the same per token as cached Sol input. Luna's cheaper output can still help. Switching back to Sol is much more expensive if it needs to process a long conversation again.</p>
+<h3>What about charges for writing a new cache?</h3>
+<p>The API has separate prices for reading cached input, processing new input, and saving new input into the cache. Our logs listed zero cache writes, so we priced other input at the regular rate. We haven't checked those counts against an invoice.</p>
+<p>If Jevex reused none of the last task's input and all of that input was charged at the cache-write rate, its total would be {all_write_cost * 100:.2f}¢. That's {(all_write_cost - b) / b:.0%} more than the recorded comparison. This is a separate what-if example; the slider uses regular input prices.</p>
+<p>A model change can prevent reuse. Changes to the input or settings, an expired cache, or server placement can also cause misses. See OpenAI's <a href="https://developers.openai.com/api/docs/guides/prompt-caching">cache guide</a> and <a href="https://developers.openai.com/api/docs/guides/prompt-caching/diagnostics">cache diagnostics</a>.</p>
+<p>Prices used for this test are from {escape(data['created_utc'][:10])}: <a href="https://developers.openai.com/api/docs/pricing">OpenAI API prices</a> and <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">Jev prices</a>. We included Jev's routing charge. These figures don't measure ChatGPT billing or usage limits.</p>
+</details>
+
+<footer><a href="results.json">Download the raw results</a> · {escape(data['codex_version'])}<br>Repeat the test with <code>python3 benchmarks/benchmark.py</code>. It runs eight real Codex tasks and spends tokens.</footer>
+</main>
+<script>
 const slider = document.getElementById('cache-share');
+const observed = {analysis['cache_share'] * 100};
+const fixedCost = {b};
 function updateScenario() {{
   const share = Number(slider.value) / 100;
   const last = ({switched['usage']['input_tokens']} * ((1-share) * {analysis['rates']['input']} + share * {analysis['rates']['cached']}) + {switched['usage']['output_tokens']} * {analysis['rates']['output']}) / 1000000 + {switched['router_cost_usd']};
   const total = {analysis['prefix_cost']} + last;
-  const difference = (total - {b['cost']}) / {b['cost']};
+  const gap = fixedCost - total;
+  const maxCost = Math.max(total, fixedCost);
   document.getElementById('cache-value').textContent = (share * 100).toFixed(1) + '%';
-  document.getElementById('scenario-result').textContent = '$' + total.toFixed(4) + ' routed total · ' + (Math.abs(difference)*100).toFixed(1) + '% ' + (difference > 0 ? 'more' : 'less') + ' than measured fixed Sol';
+  document.getElementById('jevex-cost').textContent = (total * 100).toFixed(2) + '¢';
+  document.getElementById('jevex-bar').style.width = (total / maxCost * 100) + '%';
+  document.getElementById('fixed-bar').style.width = (fixedCost / maxCost * 100) + '%';
+  const result = document.getElementById('scenario-result');
+  result.classList.toggle('loss', gap < 0);
+  result.textContent = Math.abs(gap) < 0.000005 ? 'Both runs cost about the same.' :
+    'Jevex would cost ' + (Math.abs(gap) * 100).toFixed(2) + '¢ ' + (gap >= 0 ? 'less' : 'more') + ' overall, ' + (Math.abs(gap) / fixedCost * 100).toFixed(1) + '% ' + (gap >= 0 ? 'cheaper.' : 'more expensive.');
 }}
 slider.addEventListener('input', updateScenario);
+document.getElementById('reset-cache').addEventListener('click', () => {{
+  slider.value = observed;
+  updateScenario();
+}});
 updateScenario();
-</script></body></html>'''
+</script>
+</body></html>'''
